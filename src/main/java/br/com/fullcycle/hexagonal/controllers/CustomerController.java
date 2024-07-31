@@ -1,5 +1,7 @@
 package br.com.fullcycle.hexagonal.controllers;
 
+import br.com.fullcycle.hexagonal.application.exceptions.ValidationException;
+import br.com.fullcycle.hexagonal.application.usecases.CreateCustomerUseCase;
 import br.com.fullcycle.hexagonal.dtos.CustomerDTO;
 import br.com.fullcycle.hexagonal.models.Customer;
 import br.com.fullcycle.hexagonal.services.CustomerService;
@@ -18,21 +20,19 @@ public class CustomerController {
 
     @PostMapping
     public ResponseEntity<?> create(@RequestBody CustomerDTO dto) {
-        if (customerService.findByCpf(dto.getCpf()).isPresent()) {
-            return ResponseEntity.unprocessableEntity().body("Customer already exists");
+
+        try {
+
+            final var useCase = new CreateCustomerUseCase(customerService);
+            final var output = useCase.execute(new CreateCustomerUseCase.Input(dto.getCpf(), dto.getEmail(), dto.getName()));
+
+            return ResponseEntity.created(URI.create("/customers/" + output.id())).body(output);
+
+        } catch (ValidationException e){
+            return ResponseEntity.unprocessableEntity().body(e.getMessage());
+
         }
-        if (customerService.findByEmail(dto.getEmail()).isPresent()) {
-            return ResponseEntity.unprocessableEntity().body("Customer already exists");
-        }
 
-        var customer = new Customer();
-        customer.setName(dto.getName());
-        customer.setCpf(dto.getCpf());
-        customer.setEmail(dto.getEmail());
-
-        customer = customerService.save(customer);
-
-        return ResponseEntity.created(URI.create("/customers/" + customer.getId())).body(customer);
     }
 
     @GetMapping("/{id}")
